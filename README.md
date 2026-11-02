@@ -97,3 +97,16 @@ Do not expose its HTTP service to untrusted networks.
 
 Public IModule download and clean VM grading must be
 independently verified.
+
+## Labtainer Image Compatibility
+
+Docker Hub images include Labtainer base-image metadata.
+
+The lab uses:
+
+    BASE_REGISTRY labtainers
+
+The development VM successfully started all three containers
+and passed the six grading objectives.
+
+Independent clean-VM installation remains to be verified.
