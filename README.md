@@ -110,3 +110,17 @@ The development VM successfully started all three containers
 and passed the six grading objectives.
 
 Independent clean-VM installation remains to be verified.
+
+## Network Configuration
+
+This lab uses a dedicated Docker network:
+
+    LAB11_CMDINJ_NET
+    172.29.111.0/24
+
+This avoids name collisions with other Labtainer labs.
+
+If upgrading an older local installation, Labtainer may
+retain an outdated cached start.config in its .tmp directory.
+Remove or back up that lab-specific cached configuration
+before starting the updated lab.
