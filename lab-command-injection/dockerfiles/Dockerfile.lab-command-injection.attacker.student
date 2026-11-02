@@ -1,0 +1,12 @@
+FROM labtainers/labtainer.base2:latest
+USER root
+ARG labdir
+ARG imagedir
+ARG lab
+RUN apt-get update -qq && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends python3 && rm -rf /var/lib/apt/lists/*
+ADD $labdir/sys_$lab.tar.gz /
+RUN id ubuntu >/dev/null 2>&1 || useradd -m -s /bin/bash ubuntu
+RUN install -d -o ubuntu -g ubuntu /home/ubuntu/lab11 /home/ubuntu/.local /home/ubuntu/.local/result /home/ubuntu/.local/zip
+ENV HOME=/home/ubuntu
+WORKDIR /home/ubuntu
+USER root

@@ -1,0 +1,124 @@
+#!/usr/bin/env python3
+import json
+import sys
+from pathlib import Path
+from http.server import HTTPServer, BaseHTTPRequestHandler
+
+root = Path.home() / "lab11"
+root.mkdir(exist_ok=True)
+
+if "--detect" in sys.argv:
+    file = root / "events.jsonl"
+
+    if not file.exists():
+        raise SystemExit("NO_EVENTS")
+
+    events = [
+        json.loads(line)
+        for line in file.read_text().splitlines()
+        if line.strip()
+    ]
+
+    baseline = set()
+    injection = set()
+    confirmed = None
+
+    for event in events:
+        ip = event.get("source_ip", "")
+        target = event.get("target", "")
+
+        if event.get("kind") == "baseline":
+            baseline.add(ip)
+
+        if (
+            event.get("kind") == "injection"
+            and event.get("success") is True
+            and "; id" in target
+            and ip in baseline
+        ):
+            injection.add(ip)
+
+        if (
+            event.get("kind") == "injection"
+            and event.get("success") is True
+            and "; cat " in target
+            and "training-record.txt" in target
+            and ip in injection
+        ):
+            confirmed = ip
+            break
+
+    if not confirmed:
+        raise SystemExit("NO_CORRELATED_ATTACK")
+
+    report = {
+        "verdict": "true_positive",
+        "attack_chain": [
+            "os_command_injection",
+            "demo_data_access"
+        ],
+        "source_ip": confirmed,
+        "target_server": "172.29.111.20",
+        "affected_file": "training-record.txt",
+        "evidence": [
+            "baseline_request",
+            "injection_execution",
+            "demo_data_access"
+        ],
+        "recommendation":
+            "Avoid shell=True and validate command arguments."
+    }
+
+    (root / "investigation.json").write_text(
+        json.dumps(report, indent=2)
+    )
+
+    (root / "alerts.log").write_text(
+        "CMD_INJECTION_CHAIN_CONFIRMED\n"
+    )
+
+    print("LAB11_SOC_OK")
+    print("VERDICT=true_positive")
+    print("SOURCE_IP=" + confirmed)
+    sys.exit(0)
+
+class Handler(BaseHTTPRequestHandler):
+    def do_POST(self):
+        if self.client_address[0] != "172.29.111.20":
+            self.send_error(403)
+            return
+
+        n = int(self.headers.get("Content-Length", 0))
+
+        if not 0 < n <= 4096:
+            self.send_error(400)
+            return
+
+        try:
+            event = json.loads(self.rfile.read(n))
+
+            if (
+                not isinstance(event, dict)
+                or event.get("kind") not in ("baseline", "injection")
+                or not isinstance(event.get("source_ip"), str)
+                or not isinstance(event.get("target"), str)
+                or not isinstance(event.get("success"), bool)
+            ):
+                raise ValueError("invalid event")
+
+        except (ValueError, TypeError):
+            self.send_error(400)
+            return
+
+        with (root / "events.jsonl").open("a") as f:
+            f.write(json.dumps(event) + "\n")
+
+        self.send_response(200)
+        self.end_headers()
+        self.wfile.write(b"OK")
+
+print("LAB11_SOC_READY", flush=True)
+
+HTTPServer(
+    ("0.0.0.0", 8081), Handler
+).serve_forever()
